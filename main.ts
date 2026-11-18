@@ -8,6 +8,7 @@
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
+import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -52,5 +53,14 @@ if (size.width > MAX_SIDE || size.height > MAX_SIDE) {
 
 const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 mkdirSync(outDir, { recursive: true });
-writeFileSync(join(outDir, 'entry.png'), image);
-console.log(`handed in entry.png: ${size.kind} ${size.width}x${size.height}, ${image.length} bytes`);
+const target = join(outDir, 'entry.png');
+writeFileSync(target, image);
+
+// Read the handed-in file back and prove it is the same image, byte for byte:
+// the judge sees exactly these bytes, so a short or altered copy must fail loudly here.
+const digest = (buf) => createHash('sha256').update(buf).digest('hex');
+const handedIn = readFileSync(target);
+if (handedIn.length !== image.length || digest(handedIn) !== digest(image)) {
+  throw new Error('the handed-in entry.png does not match the source image');
+}
+console.log(`handed in entry.png: ${size.kind} ${size.width}x${size.height}, ${image.length} bytes, sha256 ${digest(image).slice(0, 12)}`);
